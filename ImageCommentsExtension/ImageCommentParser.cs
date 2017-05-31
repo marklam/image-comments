@@ -3,6 +3,7 @@
 namespace LM.ImageComments.EditorComponent
 {
     using System;
+    using System.Collections.Generic;
     using System.Globalization;
     using System.Text.RegularExpressions;
     using System.Windows.Media;
@@ -12,78 +13,113 @@ namespace LM.ImageComments.EditorComponent
     // TODO [?]: Could make this a non-static class and use instances, but ensure a new instance is created when content type of a view is changed.
     internal static class ImageCommentParser
     {
-
-
-        private static Regex _csharpImageCommentRegex;
-        private static Regex _csharpIndentRegex;
-        private static Regex _vbImageCommentRegex;
-        private static Regex _vbIndentRegex;
-		private static Regex _pythonImageCommentRegex;
-		private static Regex _pythonIndentRegex;
         private static Regex _xmlImageTagRegex;
+        private const string xmlImageTagPattern = @"<image.*>";
+
+        public class SupportedLanguage
+        {
+            public SupportedLanguage(string comment, string name, string alias = null)
+            {
+                Name = name;
+                Alias = alias;
+                Comment = comment;
+
+                FindFirstComment = new Regex(Comment, RegexOptions.Compiled);
+                FindFirstCharAfterComment = new Regex(Comment + @"\s*<image", RegexOptions.Compiled);
+                FindImageComment = new Regex(Comment + @".*" + xmlImageTagPattern, RegexOptions.Compiled);
+            }
+            public string Name;
+            public string Alias;
+            public string Comment;
+            public Regex FindFirstCharAfterComment;
+            public Regex FindImageComment;
+            public Regex FindFirstComment;
+        }
+
+        private static List<SupportedLanguage> _langs;
+
+
+        //      private static Regex _csharpImageCommentRegex;
+        //      private static Regex _csharpIndentRegex;
+        //      private static Regex _vbImageCommentRegex;
+        //      private static Regex _vbIndentRegex;
+        //private static Regex _pythonImageCommentRegex;
+        //private static Regex _pythonIndentRegex;
+
+
 
         // Initialize regex objects
         static ImageCommentParser()
         {
-            const string xmlImageTagPattern = @"<image.*>";
-
-            // C/C++/C#
-            const string cSharpIndent = @"//\s+";
-            _csharpIndentRegex = new Regex(cSharpIndent, RegexOptions.Compiled);
-            const string cSharpCommentPattern = @"//.*";
-            _csharpImageCommentRegex = new Regex(cSharpCommentPattern + xmlImageTagPattern, RegexOptions.Compiled);
-
-            // VB
-            const string vbIndent = @"'\s+";
-            _vbIndentRegex = new Regex(vbIndent, RegexOptions.Compiled);
-            const string vbCommentPattern = @"'.*";
-            _vbImageCommentRegex = new Regex(vbCommentPattern + xmlImageTagPattern, RegexOptions.Compiled);
-
-            //Python
-			const string pythonIndent = @"#\s+";
-            _pythonIndentRegex = new Regex(pythonIndent, RegexOptions.Compiled);
-            const string pythonCommentPattern = @"#.*";
-            _pythonImageCommentRegex = new Regex(pythonCommentPattern + xmlImageTagPattern, RegexOptions.Compiled);
+            _langs = new List< SupportedLanguage > ();
+            _langs.Add(new SupportedLanguage("//", "C/C++", "CSharp"));
+            _langs.Add(new SupportedLanguage("'", "Basic"));
+            _langs.Add(new SupportedLanguage("#", "Python"));
 
             _xmlImageTagRegex = new Regex(xmlImageTagPattern, RegexOptions.Compiled);
+        }
+
+        public static SupportedLanguage GetLanguage(string contentTypeName)
+        {
+            if (string.IsNullOrWhiteSpace(contentTypeName))
+                return null;
+
+            foreach(SupportedLanguage l in _langs)
+            {
+                if (contentTypeName == l.Name || contentTypeName == l.Alias)
+                    return l;
+            }
+
+            return null;
+        }
+
+        public static string GetLineCommentStart(string contentTypeName)
+        {
+            SupportedLanguage l = GetLanguage(contentTypeName);
+            return l==null ? "" : l.Comment;
         }
 
         /// <summary>
         /// Tries to match Regex on input text
         /// </summary>
         /// <returns>Position in line at start of matched image comment. -1 if not matched</returns>
-        public static int Match(string contentTypeName, string lineText, out string matchedText)
+        public static int MatchImageTag(string contentTypeName, string lineText, out string matchedText)
         {
-            Match commentMatch;
-            Match indentMatch;
-            switch (contentTypeName)
+            SupportedLanguage l = GetLanguage(contentTypeName);
+            if (l == null)
             {
-                case "C/C++":
-                case "CSharp":
-                    commentMatch = _csharpImageCommentRegex.Match(lineText);
-                    indentMatch = _csharpIndentRegex.Match(lineText);
-                    break;
-                case "Basic":
-                    commentMatch = _vbImageCommentRegex.Match(lineText);
-                    indentMatch = _vbIndentRegex.Match(lineText);
-                    break;
-                case "Python":
-                    commentMatch = _pythonImageCommentRegex.Match(lineText);
-                    indentMatch = _pythonIndentRegex.Match(lineText);
-                    break;
-                //TODO: Add support for more languages
-                default:
-                    //Console.WriteLine("Unsupported content type: " + contentTypeName);
-                    matchedText = "";
-                    return -1;
+                matchedText = "";
+                return -1;
             }
+            Match imageCommentMatch = l.FindImageComment.Match(lineText);
+            Match indentMatch = l.FindFirstCharAfterComment.Match(lineText);
 
-            matchedText = commentMatch.Value;
+            matchedText = imageCommentMatch.Value;
             if (matchedText == "")
                 return -1;
-            
-            return indentMatch.Index + indentMatch.Length;
+            int tagStart = indentMatch.Index + indentMatch.Length - 6;
+
+            if (imageCommentMatch.Index >= tagStart - l.Comment.Length - 1)
+                return imageCommentMatch.Index;
+
+            return tagStart;
         }
+
+        /// <summary>
+        /// Tries to match comment Regex on input text
+        /// </summary>
+        /// <returns>The position of the comment end if it contains a comment, otherwise -1</returns>
+        public static int MatchComment(string contentTypeName, string lineText)
+        {
+            SupportedLanguage l = GetLanguage(contentTypeName);
+            if (l == null)
+                return -1;
+
+            Match indentMatch = l.FindFirstComment.Match(lineText);
+
+            return indentMatch.Success ? indentMatch.Index + indentMatch.Length : -1;
+        }
+
         /// <summary>
         /// Looks for well formed image comment in line of text and tries to parse parameters
         /// </summary>

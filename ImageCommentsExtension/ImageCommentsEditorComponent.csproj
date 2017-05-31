@@ -145,6 +145,8 @@
     <Compile Include="DataUriLoader.cs" />
     <Compile Include="ExceptionHandler.cs" />
     <Compile Include="ErrorTaggerProvider.cs" />
+    <Compile Include="ImageCommentDropHandler.cs" />
+    <Compile Include="ImageCommentDropHandlerProvider.cs" />
     <Compile Include="MyImage.cs" />
     <Compile Include="MyLineTransformSource.cs" />
     <Compile Include="MyLineTransformSourceProvider.cs" />

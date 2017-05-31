@@ -29,9 +29,15 @@
             {
                 double defaultHeight = line.DefaultLineTransform.BottomSpace;
                 MyImage image = _manager.Images[lineNumber];
-                lineTransform = new LineTransform(0, image.Height + defaultHeight, 1.0);
-
-                imageOnLine = true;
+                if (image.Exists)
+                {
+                    lineTransform = new LineTransform(0, image.Height + defaultHeight, 1.0);
+                    imageOnLine = true;
+                }
+                else
+                {
+                    lineTransform = new LineTransform(0, 0, 1.0);
+                }
             }
             else
             {

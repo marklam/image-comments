@@ -17,6 +17,8 @@ namespace LM.ImageComments.EditorComponent
         private VariableExpander _variableExpander;
         private FileSystemWatcher _watcher;
 
+        public bool Exists { get; private set; }
+
         public string Url { get; private set; }
         public Color BgColor { get; private set; }
 
@@ -28,6 +30,7 @@ namespace LM.ImageComments.EditorComponent
                 throw new ArgumentNullException("variableExpander");
             }
             _variableExpander = variableExpander;
+           Exists = false;
         }
 
         /// <summary>
@@ -72,6 +75,9 @@ namespace LM.ImageComments.EditorComponent
             exception = null;
             try
             {
+                Url = imageUrl;
+                BgColor = bgColor;
+
                 var expandedUrl = _variableExpander.ProcessText(imageUrl);
                 if (File.Exists(expandedUrl))
                 {
@@ -119,10 +125,7 @@ namespace LM.ImageComments.EditorComponent
                 if (bgColor.A != 0)
                 {
                     Source = ReplaceTransparency(Source, bgColor);
-                    BgColor = bgColor;
                 }
-
-                Url = imageUrl;
             }
             catch (Exception ex)
             {
@@ -130,6 +133,7 @@ namespace LM.ImageComments.EditorComponent
                 return false;
             }
             this.Scale = scale;
+            Exists = true;
             return true;
         }
 

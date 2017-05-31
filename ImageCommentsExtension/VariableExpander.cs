@@ -99,6 +99,34 @@ namespace LM.ImageComments
             }
         }
 
+        private string GetRelativePath(string filespec, string folder)
+        {
+            Uri pathUri = new Uri(filespec);
+            // Folders must end in a slash
+            if (!folder.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                folder += Path.DirectorySeparatorChar;
+            }
+            Uri folderUri = new Uri(folder);
+            return Uri.UnescapeDataString(folderUri.MakeRelativeUri(pathUri).ToString().Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        internal string SubstituteProjectOrSolutionDir(string filename)
+        {
+            filename = GetRelativePath(filename, _projectDirectory);
+
+            if (!Path.IsPathRooted(filename))
+                return PROJECTDIR_PATTERN + filename;
+
+            filename = GetRelativePath(filename, _solutionDirectory);
+
+            if (!Path.IsPathRooted(filename))
+                return SOLUTIONDIR_PATTERN + filename;
+
+            //stay with the absolute filename
+            return filename;
+        }
+
         /// <summary>
         /// Populates variable values from the ProjectItem associated with the TextView.
         /// </summary>
